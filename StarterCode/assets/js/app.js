@@ -1,3 +1,5 @@
+function makeResponsive() {
+
 // Define SVG area dimensions
 var svgWidth = 960;
 var svgHeight = 660;
@@ -22,23 +24,25 @@ var svg = d3.select("body")
 var chartGroup = svg.append("g")
     .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
-// Read in data
-d3.csv("assets/js/data.csv").then(function (healthData) {
+d3.select("body").append("div").attr("class", "tooltip").style("opacity", 0);
 
-    healthData.forEach(function (data) {
-        data.healthcare = +data.healthcare;
-        data.poverty = +data.poverty;
+// Read in cod_df
+d3.csv("assets/js/merge_df.csv").then(function (waterData) {
+    console.log(waterData);
+    waterData.forEach(function (d) {
+        d.unsafe_water_perct = +d.unsafe_water_perct;
+        d.safe_water_2017 = +d.safe_water_2017;
     });
 
-    var xLinearScale = d3.scaleLinear()
-        .domain([0, d3.max(healthData, d => d.poverty)])
+    var xScale = d3.scaleLinear()
+        .domain([1, d3.max(waterData, d => d.safe_water_2017)])
         .range([0, width]);
 
     var yLinearScale = d3.scaleLinear()
-        .domain([0, d3.max(healthData, d => d.healthcare)])
+        .domain([0, d3.max(waterData, d => d.unsafe_water_perct)])
         .range([height, 0]);
 
-    var bottomAxis = d3.axisBottom(xLinearScale);
+    var bottomAxis = d3.axisBottom(xScale);
     var leftAxis = d3.axisLeft(yLinearScale);
 
     chartGroup.append("g")
@@ -49,24 +53,55 @@ d3.csv("assets/js/data.csv").then(function (healthData) {
         .call(leftAxis);
 
     var circles = chartGroup.selectAll("circle")
-        .data(healthData)
+        .data(waterData)
         .enter();
 
     // Create Circles
+    var myColor = d3.scaleSequential().domain([1, 10]).interpolator(d3.interpolateViridis);
     var circlesGroup = circles
         .append("circle")
-        .attr("cx", d => xLinearScale(d.poverty))
-        .attr("cy", d => yLinearScale(d.healthcare))
+        .attr("cx", d => xScale(d.safe_water_2017))
+        .attr("cy", d => yLinearScale(d.unsafe_water_perct))
         .attr("r", "10")
-        .attr("fill", "blue")
-        .attr("opacity", ".5");
+        .attr("fill", function (d) { return myColor(d) })
+        .attr("opacity", ".5")
+        .on("click", function (d, i) {
+            alert(`Hey! You clicked bar ${dataCategories[i]}!`);
+        })
+        // event listener for mouseover
+        .on("mouseover", function () {
+            d3.select(this)
+                .attr("fill", "red");
+        })
+        // event listener for mouseout
+        .on("mouseout", function () {
+            d3.select(this)
+                .attr("fill", "green");
+        });
 
-    // Add State Abbr
+
+
+    var toolTip = d3.tip()
+        .attr("class", "tooltip")
+        .offset([80, -60])
+        .html(function (d) {
+            return (code + '%');
+        });
+
+    chartGroup.call(toolTip);
+    circlesGroup.on("click", function (data) {
+        toolTip.show(data);
+    })
+        .on("mouseout", function (data, index) {
+            toolTip.hide(data);
+        });
+
+    // Add country code
     circles.append("text")
-        .text(d => d.abbr)
-        .attr("dx", d => xLinearScale(d.poverty))
-        .attr("dy", d => yLinearScale(d.healthcare)+10/2.5)
-        .attr("font-size", "10")
+        .text(d => d.code)
+        .attr("dx", d => xScale(d.safe_water_2017))
+        .attr("dy", d => yLinearScale(d.unsafe_water_perct) + 10 / 2.5)
+        .attr("font-size", "7")
         .attr("class", "stateText");
 
     // Create axes labels
@@ -76,19 +111,23 @@ d3.csv("assets/js/data.csv").then(function (healthData) {
         .attr("x", 0 - (height / 2))
         .attr("dy", "1em")
         .attr("class", "axisText")
-        .text("Healthcare");
+        .text("Water Source Variable");
 
-    // Add Labels    
+    // Add labels    
     chartGroup.append("text")
         .attr("transform", `translate(${width / 2}, ${height + margin.top + 30})`)
         .attr("class", "axisText")
-        .text("Poverty");
+        .text("Population % Access to Clean Water");
 
     chartGroup.append('text')
         .attr('transform', `translate(${width / 2}, ${-5})`)
         .attr("class", "axisText")
-        .text("Healthcare vs Poverty");
+        .text("Acces Type vs Access to Clean Water");
 
-    console.log(healthData);
+    console.log(waterData);
 
 });
+
+}
+
+makeResponsive();
